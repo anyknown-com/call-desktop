@@ -156,12 +156,12 @@ pub fn compute_fbank(pcm: &[f32]) -> (Vec<f32>, usize) {
     for f in 0..frames {
         // snip_edges=false: frame is centered; out-of-range samples reflect off the edges.
         let start = (f * FRAME_SHIFT + FRAME_SHIFT / 2) as isize - (FRAME_LEN / 2) as isize;
-        for k in 0..FRAME_LEN {
+        for (k, w) in win.iter_mut().enumerate() {
             let mut s = start + k as isize;
             while s < 0 || s >= n {
                 s = if s < 0 { -s - 1 } else { 2 * n - s - 1 };
             }
-            win[k] = pcm[s as usize] as f64;
+            *w = pcm[s as usize] as f64;
         }
         // remove_dc_offset
         let mean = win.iter().sum::<f64>() / FRAME_LEN as f64;
@@ -174,8 +174,8 @@ pub fn compute_fbank(pcm: &[f32]) -> (Vec<f32>, usize) {
         }
         win[0] -= PREEMPH * win[0];
         // povey window, zero-pad, FFT
-        for k in 0..FRAME_LEN {
-            re[k] = win[k] * t.povey[k];
+        for (k, w) in win.iter().enumerate() {
+            re[k] = w * t.povey[k];
         }
         re[FRAME_LEN..].fill(0.0);
         im.fill(0.0);

@@ -198,7 +198,7 @@ mod tests {
     fn embedding_checks() {
         let a = unit(0, 4);
         assert_eq!(check_clip_embedding(&a, &[]), None);
-        assert_eq!(check_clip_embedding(&near(&a, 0.001, 1), &[a.clone()]), Some(ClipRejection::Duplicate));
+        assert_eq!(check_clip_embedding(&near(&a, 0.001, 1), std::slice::from_ref(&a)), Some(ClipRejection::Duplicate));
         let b = near(&a, 0.3, 1);
         let acc = vec![a.clone(), b];
         assert_eq!(check_clip_embedding(&unit(3, 4), &acc), Some(ClipRejection::InconsistentEmbedding));

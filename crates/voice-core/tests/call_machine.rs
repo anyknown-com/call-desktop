@@ -99,15 +99,7 @@ impl H {
         self.step(Input::SpeechRealStart);
         self.step(Input::SpeechEnd { audio: vec![0.0; 16000], sample_rate: 16000 });
     }
-    fn stt_answer(&mut self, text: &str) {
-        let req = self.stt[self.stt.len() - 1 - self.pending_stt_offset()];
-        self.step(Input::SttResult { req, outcome: Outcome::Ok(text.to_string()) });
-    }
-    /// answer the oldest unanswered STT (like FakeStt.answer)
-    fn pending_stt_offset(&self) -> usize {
-        // FakeStt.answer resolves the first unanswered call; we track answered ones by removing.
-        0
-    }
+    /// Answer the oldest unanswered STT request (like FakeStt.answer).
     fn stt_answer_oldest(&mut self, text: &str) {
         let req = self.stt.remove(0);
         self.step(Input::SttResult { req, outcome: Outcome::Ok(text.to_string()) });

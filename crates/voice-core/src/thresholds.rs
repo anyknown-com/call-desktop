@@ -77,8 +77,9 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn streaming_stricter_than_full_turn_and_hysteresis_holds() {
-        assert!(GLOBAL_THRESHOLDS_V1.streaming_high > GLOBAL_THRESHOLDS_V1.full_turn);
+        assert!(GLOBAL_THRESHOLDS_V1.streaming_high > GLOBAL_THRESHOLDS_V1.full_turn, "commit must be stricter than acceptance");
         let t = resolve_thresholds(GLOBAL_THRESHOLDS_V1, Some(0.9));
         assert!(t.streaming_low < t.streaming_high);
     }

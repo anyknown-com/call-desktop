@@ -72,8 +72,7 @@ impl SentenceSegmenter {
         self.buffer = self.buffer.trim_start().to_string();
         let mut out = Vec::new();
         let mut carry = String::new();
-        loop {
-            let Some(cut) = self.find_cut(&self.buffer) else { break };
+        while let Some(cut) = self.find_cut(&self.buffer) {
             let sentence = self.buffer[..cut].to_string();
             self.buffer = self.buffer[cut..].trim_start().to_string();
             let sentence = format!("{carry}{sentence}");

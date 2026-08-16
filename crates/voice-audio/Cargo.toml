@@ -5,3 +5,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+voice-core.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+cpal = "0.18"
+rubato = "0.16"
+rtrb = "0.3"
+webrtc-audio-processing = { version = "2.1", features = ["bundled"] }
+
+[dev-dependencies]
+hound.workspace = true
