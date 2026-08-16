@@ -12,7 +12,6 @@ tracing.workspace = true
 cpal = "0.18"
 rubato = "0.16"
 rtrb = "0.3"
+hound.workspace = true
 webrtc-audio-processing = { version = "2.1", features = ["bundled"] }
 
-[dev-dependencies]
-hound.workspace = true

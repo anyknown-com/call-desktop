@@ -1,13 +1,59 @@
 # voice-desktop
 
 Open-source native desktop version of [`@anyknown/voice`](../voice): a cascaded, bring-your-own-key
-voice call app (mic → VAD → STT → LLM → TTS) with barge-in, a speaker-verified Media mode, and
-**OS-level ducking of other apps' audio while the AI speaks** — the thing a browser can't do.
+voice call app (mic → VAD → STT → LLM → TTS) with barge-in, semantic turn-taking, a
+speaker-verified Media mode, and **OS-level muting of other apps' audio while the AI speaks** —
+the thing a browser can't do.
 
-Rust + [GPUI](https://www.gpui.rs). macOS first; Windows/Linux later.
+Rust + [GPUI](https://www.gpui.rs). macOS first; Windows/Linux later. See [`docs/spec.md`](docs/spec.md).
 
-Status: Phase 0 — `voice-core` port in progress. See [`docs/spec.md`](docs/spec.md).
+## Status
+
+- **Phase 1 (headless) — done.** `voice call` runs a full call on macOS: WebRTC AEC/NS/AGC,
+  Silero VAD, ElevenLabs Scribe STT, OpenAI/Anthropic streaming LLM, ElevenLabs/OpenAI TTS,
+  barge-in, hold-for-mid-thought, interjection handling, Media mode (CAM++ speaker gate),
+  media ducking via Core Audio process taps, transcripts saved to disk.
+- **Phase 2 (GPUI app) — in progress.**
+
+## Build
+
+Prereqs (macOS): Rust stable, `brew install cmake meson ninja` (the bundled WebRTC audio
+processing library is built from source on first `cargo build`), Xcode command line tools.
+
+```sh
+./scripts/fetch-models.sh     # Silero VAD v5 + CAM++ (sha-pinned) into ./models
+cargo build --release
+cargo test --workspace
+```
+
+## Use (CLI)
+
+```sh
+voice keys set elevenlabs      # stored in the macOS keychain (also: openai, anthropic)
+voice keys set openai
+voice settings                 # prints/creates ~/Library/Application Support/com.anyknown.voice/settings.json
+voice devices
+voice call                     # speak; `i`⏎ interrupts, `q`⏎ hangs up
+voice call --duck              # mute every other app while the assistant speaks (macOS 14.2+,
+                               #   needs System Audio Recording permission)
+voice enroll                   # 6 clips + 1 check clip → speaker profile
+voice call --media             # Media mode: only your verified voice interrupts
+voice duck-test                # mute other apps for 5 s, then restore
+voice call --mock --mic-wav some.wav --seconds 30   # offline e2e harness (no keys)
+```
+
+Env fallbacks for keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`.
+`VOICE_MODELS_DIR` overrides the models directory.
+
+## Layout
 
 ```
-cargo test
+crates/voice-core       pure logic (fbank, speaker gate FSM, sans-IO CallMachine…), golden-fixture tests
+crates/voice-audio      cpal I/O, resampling, WebRTC APM, ordered playback sink, media-turn controller
+crates/voice-ml         ort: Silero VAD v5, CAM++ embedder (cosine 1.0 vs reference)
+crates/voice-providers  ElevenLabs STT/TTS, OpenAI/Anthropic chat (SSE), OpenAI TTS, fast-LLM judges
+crates/voice-os         media ducking (Core Audio process tap / AppleScript), keychain
+crates/voice-runtime    tokio driver: executes CallMachine commands, pipeline thread, ducking, transcripts
+crates/voice-cli        `voice` binary
+crates/voice-app        GPUI desktop app
 ```

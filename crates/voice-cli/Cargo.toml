@@ -9,3 +9,15 @@ name = "voice"
 path = "src/main.rs"
 
 [dependencies]
+voice-core.workspace = true
+voice-audio.workspace = true
+voice-ml.workspace = true
+voice-os.workspace = true
+voice-runtime.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap = { version = "4", features = ["derive"] }
+rpassword = "7"

@@ -3,6 +3,7 @@
 //! assistant speaks, and persists transcripts. The CLI, the GPUI app and the MCP server are thin
 //! front-ends over [`Runtime`].
 
+pub mod mock;
 pub mod pipeline;
 pub mod settings;
 pub mod transcript;
@@ -63,6 +64,10 @@ pub struct RuntimeOptions {
     /// Required for media mode.
     pub profile: Option<SpeakerProfile>,
     pub models_dir: std::path::PathBuf,
+    /// Use offline mock providers (e2e harness).
+    pub mock: bool,
+    /// Feed this WAV as the microphone instead of a device (e2e harness).
+    pub input_wav: Option<std::path::PathBuf>,
 }
 
 pub struct Runtime {
@@ -133,6 +138,17 @@ fn build_providers(s: &Settings, k: &Keys) -> Result<Providers> {
     })
 }
 
+fn mock_providers(s: &Settings) -> Providers {
+    let fast = Arc::new(mock::MockFast);
+    Providers {
+        stt: Arc::new(mock::MockStt::new()),
+        tts: Arc::new(mock::MockTts),
+        agent: Arc::new(mock::MockAgent),
+        judge: s.turn.semantic.then(|| fast.clone() as Arc<dyn TurnDetector>),
+        interjection: s.turn.interjections.then_some(fast as Arc<dyn InterjectionHandler>),
+    }
+}
+
 struct Driver {
     machine: CallMachine,
     providers: Providers,
@@ -159,8 +175,8 @@ struct Driver {
 
 impl Driver {
     fn new(opts: RuntimeOptions, events: UnboundedSender<RuntimeEvent>) -> Result<Driver> {
-        let RuntimeOptions { settings, keys, profile, models_dir } = opts;
-        let providers = build_providers(&settings, &keys)?;
+        let RuntimeOptions { settings, keys, profile, models_dir, mock, input_wav } = opts;
+        let providers = if mock { mock_providers(&settings) } else { build_providers(&settings, &keys)? };
 
         // Models
         let vad_model = voice_ml::SileroVad::new(models_dir.join(voice_ml::models::SILERO_VAD_V5_FILE)).context("load Silero VAD")?;
@@ -185,6 +201,7 @@ impl Driver {
                 input_device: settings.audio.input_device.clone(),
                 output_device: settings.audio.output_device.clone(),
                 apm: voice_audio::apm::ApmOptions { noise_suppression: settings.audio.noise_suppression, agc: settings.audio.agc },
+                input_wav,
             },
             cap_tx,
             sink_std_tx,
