@@ -1,6 +1,6 @@
 # voice-desktop
 
-Open-source native desktop version of [`@anyknown/voice`](../voice): a cascaded, bring-your-own-key
+Open-source native desktop version of [Anyknown Call](../call) (`@anyknown/voice`): a cascaded, bring-your-own-key
 voice call app (mic → VAD → STT → LLM → TTS) with barge-in, semantic turn-taking, a
 speaker-verified Media mode, and **OS-level muting of other apps' audio while the AI speaks** —
 the thing a browser can't do.

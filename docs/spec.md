@@ -1,6 +1,6 @@
 # voice-desktop — Rust + GPUI rewrite spec (v0, 2026-08-16)
 
-Open-source native desktop version of `@anyknown/voice`: a cascaded, BYOK, no-server voice
+Open-source native desktop version of Anyknown Call (`@anyknown/voice`): a cascaded, BYOK, no-server voice
 call app (mic → VAD → batch STT → LLM → TTS → speaker) with barge-in, semantic end-of-turn,
 speaker-gated Media mode, and — the reason this exists — **OS-level media ducking while the AI
 speaks**, which a browser cannot do.
