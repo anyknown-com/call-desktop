@@ -1,8 +1,9 @@
-//! Top-level view: sidebar navigation + pages. Settings/keys live in a GPUI global.
+//! Top-level view: a slim top bar (wordmark + tabs) over the current page.
 
+use crate::palette::{c, DISPLAY_FONT, HAIRLINE, INK, IVORY, IVORY_DIM, MUTED, PANEL};
 use crate::{call_view::CallView, history_view::HistoryView, settings_view::SettingsView, voice_view::VoiceView};
-use gpui::*;
-use gpui_component::{button::*, h_flex, v_flex, ActiveTheme};
+use gpui::{prelude::FluentBuilder, *};
+use gpui_component::{h_flex, v_flex};
 use voice_runtime::settings::{self, Keys, Settings};
 
 pub struct AppState {
@@ -11,13 +12,28 @@ pub struct AppState {
 }
 impl Global for AppState {}
 
+actions!(voice_app, [Quit]);
+
 pub fn init(cx: &mut App) {
     cx.set_global(AppState { settings: settings::load(), keys: Keys::load() });
+    cx.on_action(|_: &Quit, cx| cx.quit());
     cx.bind_keys([
+        KeyBinding::new("cmd-q", Quit, None),
         KeyBinding::new("space", crate::call_view::Interrupt, Some("CallView")),
         KeyBinding::new("escape", crate::call_view::Interrupt, Some("CallView")),
         KeyBinding::new("cmd-enter", crate::call_view::ToggleCall, Some("CallView")),
     ]);
+    cx.set_menus(vec![Menu {
+        name: "voice".into(),
+        items: vec![MenuItem::action("Quit voice", Quit)],
+    }]);
+    cx.on_window_closed(|cx| {
+        if cx.windows().is_empty() {
+            cx.quit();
+        }
+    })
+    .detach();
+    cx.activate(true);
 }
 
 pub fn save_settings(cx: &mut App) {
@@ -61,17 +77,26 @@ impl AppView {
         }
     }
 
-    fn nav(&self, page: Page, label: &'static str, cx: &mut Context<Self>) -> impl IntoElement {
+    fn tab(&self, page: Page, label: &'static str, cx: &mut Context<Self>) -> impl IntoElement {
         let active = self.page == page;
-        let mut b = Button::new(label).label(label).w_full();
-        b = if active { b.primary() } else { b.ghost() };
-        b.on_click(cx.listener(move |this, _, _, cx| {
-            this.page = page;
-            if page == Page::History {
-                this.history.update(cx, |h, cx| h.refresh(cx));
-            }
-            cx.notify();
-        }))
+        div()
+            .id(label)
+            .px_3()
+            .py_1()
+            .rounded_full()
+            .text_sm()
+            .cursor_pointer()
+            .text_color(if active { c(IVORY) } else { c(MUTED) })
+            .when(active, |d| d.bg(c(PANEL)))
+            .hover(|d| d.text_color(c(IVORY_DIM)))
+            .child(label)
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.page = page;
+                if page == Page::History {
+                    this.history.update(cx, |h, cx| h.refresh(cx));
+                }
+                cx.notify();
+            }))
     }
 }
 
@@ -83,27 +108,29 @@ impl Render for AppView {
             Page::Voice => self.voice.clone().into_any_element(),
             Page::History => self.history.clone().into_any_element(),
         };
-        h_flex()
+        v_flex()
             .size_full()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(c(INK))
+            .text_color(c(IVORY))
+            .font_family(".SystemUIFont")
             .child(
-                v_flex()
-                    .w(px(180.))
-                    .h_full()
-                    .p_3()
-                    .gap_1()
-                    .bg(cx.theme().sidebar)
-                    .border_r_1()
-                    .border_color(cx.theme().sidebar_border)
-                    .child(div().px_2().pb_3().pt_1().text_lg().font_weight(FontWeight::BOLD).child("voice"))
-                    .child(self.nav(Page::Call, "Call", cx))
-                    .child(self.nav(Page::Settings, "Settings", cx))
-                    .child(self.nav(Page::Voice, "My voice", cx))
-                    .child(self.nav(Page::History, "History", cx))
+                h_flex()
+                    .h(px(44.))
+                    .px_4()
+                    .items_center()
+                    .border_b_1()
+                    .border_color(c(HAIRLINE))
+                    .child(div().font_family(DISPLAY_FONT).italic().text_lg().text_color(c(IVORY)).child("voice"))
                     .child(div().flex_1())
-                    .child(div().px_2().text_xs().text_color(cx.theme().muted_foreground).child(format!("v{}", env!("CARGO_PKG_VERSION")))),
+                    .child(
+                        h_flex()
+                            .gap_1()
+                            .child(self.tab(Page::Call, "Call", cx))
+                            .child(self.tab(Page::Voice, "My voice", cx))
+                            .child(self.tab(Page::History, "History", cx))
+                            .child(self.tab(Page::Settings, "Settings", cx)),
+                    ),
             )
-            .child(div().flex_1().h_full().min_w_0().child(content))
+            .child(div().flex_1().min_h_0().w_full().child(content))
     }
 }

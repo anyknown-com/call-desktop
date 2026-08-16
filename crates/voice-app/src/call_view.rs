@@ -2,7 +2,7 @@
 
 use crate::app::{save_settings, AppState};
 use gpui::{prelude::FluentBuilder, *};
-use gpui_component::{button::*, h_flex, switch::Switch, v_flex, ActiveTheme, Disableable, WindowExt};
+use gpui_component::{h_flex, v_flex, WindowExt};
 use tokio::sync::mpsc::UnboundedSender;
 use voice_core::call_machine::{CallState, CallStatus, Role, TurnKind};
 use voice_core::media_gate::GateState;
@@ -165,16 +165,18 @@ impl CallView {
         }
     }
 
-    fn status_label(&self) -> (&'static str, &'static str) {
+    /// (word, colour) for the on-air light.
+    fn status_look(&self) -> (&'static str, u32) {
+        use crate::palette::*;
         match self.state.status {
-            CallStatus::Idle => ("Idle", "muted"),
-            CallStatus::Listening => ("Listening", "success"),
-            CallStatus::UserSpeaking => ("You're speaking", "primary"),
-            CallStatus::Transcribing => ("Transcribing…", "info"),
-            CallStatus::Holding => ("Waiting for you to continue…", "warning"),
-            CallStatus::Thinking => ("Thinking…", "info"),
-            CallStatus::Speaking => ("Speaking", "primary"),
-            CallStatus::Interrupted => ("Deciding…", "warning"),
+            CallStatus::Idle => ("Off the line", IDLE),
+            CallStatus::Listening => ("Listening", SAGE),
+            CallStatus::UserSpeaking => ("You're speaking", CORAL),
+            CallStatus::Transcribing => ("Hearing you out", LAVENDER),
+            CallStatus::Holding => ("Take your time", SAGE),
+            CallStatus::Thinking => ("Thinking", LAVENDER),
+            CallStatus::Speaking => ("On air", AMBER),
+            CallStatus::Interrupted => ("One moment", AMBER),
         }
     }
 }
@@ -187,15 +189,8 @@ impl Focusable for CallView {
 
 impl Render for CallView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme().clone();
-        let (label, tone) = self.status_label();
-        let tone_color = match tone {
-            "success" => theme.success,
-            "primary" => theme.primary,
-            "info" => theme.info,
-            "warning" => theme.warning,
-            _ => theme.muted_foreground,
-        };
+        use crate::palette::*;
+        let (word, tone) = self.status_look();
         let active = self.active();
         let (media_mode, duck) = {
             let s = &cx.global::<AppState>().settings;
@@ -203,40 +198,166 @@ impl Render for CallView {
         };
         let has_profile = voice_runtime::enroll::profile_path().is_some_and(|p| p.exists());
         let hint = self.hint.as_ref().filter(|(_, at)| at.elapsed().as_secs() < 8).map(|(h, _)| h.clone());
+        let level = if active { self.level.clamp(0.0, 1.0) } else { 0.0 };
+        // The light: a soft halo that widens with your voice, a solid core in the state colour.
+        let halo = 72.0 + 40.0 * level;
+        let core = 22.0 + 10.0 * level;
 
-        let transcript = v_flex().gap_3().p_4().children(self.state.turns.iter().map(|t| {
+        let stage = v_flex()
+            .items_center()
+            .pt_10()
+            .pb_4()
+            .gap_4()
+            .flex_shrink_0()
+            .child(
+                div()
+                    .size(px(120.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .child(
+                        div()
+                            .size(px(halo))
+                            .rounded_full()
+                            .bg(with_alpha(tone, if active { 0.14 + 0.25 * level } else { 0.08 }))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(div().size(px(core)).rounded_full().bg(c(tone))),
+                    ),
+            )
+            .child(div().font_family(DISPLAY_FONT).italic().text_2xl().text_color(c(tone)).child(word))
+            .child(
+                div().h(px(18.)).text_xs().text_color(c(MUTED)).child(match (&self.state.error, hint, self.ducked) {
+                    (Some(e), _, _) => format!("⚠ {e}"),
+                    (None, Some(h), _) => h,
+                    (None, None, true) => "Other apps are muted while it speaks".to_string(),
+                    _ => String::new(),
+                }),
+            );
+
+        let transcript_body = v_flex().gap_5().px_8().py_4().w_full().max_w(px(720.)).mx_auto().children(self.state.turns.iter().map(|t| {
             let (who, is_user) = match (&t.role, t.kind) {
-                (Role::User, Some(TurnKind::Interjection)) => ("You (aside)", true),
-                (Role::User, _) => ("You", true),
-                (Role::Assistant, Some(TurnKind::Reaction)) => ("Assistant (reaction)", false),
-                (Role::Assistant, _) => ("Assistant", false),
+                (Role::User, Some(TurnKind::Interjection)) => ("YOU · aside", true),
+                (Role::User, _) => ("YOU", true),
+                (Role::Assistant, Some(TurnKind::Reaction)) => ("AI · aside", false),
+                (Role::Assistant, _) => ("AI", false),
             };
             let mut text = t.text.clone();
             if !t.is_final {
                 text.push('…');
             }
-            v_flex()
-                .gap_1()
-                .max_w(px(720.))
-                .when(is_user, |d| d.ml_auto().items_end())
+            h_flex()
+                .gap_5()
+                .items_start()
+                .w_full()
                 .child(
-                    h_flex()
-                        .gap_2()
+                    div()
+                        .w(px(84.))
+                        .flex_shrink_0()
+                        .pt_0p5()
                         .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child(who)
-                        .when(t.interrupted, |d| d.child("· interrupted")),
+                        .text_color(if is_user { c(IVORY_DIM) } else { c(AMBER) })
+                        .child(who),
                 )
                 .child(
                     div()
-                        .px_3()
-                        .py_2()
-                        .rounded_lg()
-                        .bg(if is_user { theme.primary } else { theme.secondary })
-                        .text_color(if is_user { theme.primary_foreground } else { theme.secondary_foreground })
-                        .child(text),
+                        .flex_1()
+                        .min_w_0()
+                        .text_base()
+                        .text_color(if is_user { c(IVORY_DIM) } else { c(IVORY) })
+                        .child(text)
+                        .when(t.interrupted, |d| d.child(div().text_xs().text_color(c(MUTED)).child("— you cut in"))),
                 )
         }));
+
+        let transcript = div()
+            .id("transcript")
+            .flex_1()
+            .min_h_0()
+            .w_full()
+            .overflow_y_scroll()
+            .track_scroll(&self.scroll)
+            .child(if self.state.turns.is_empty() {
+                div()
+                    .size_full()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_sm()
+                    .text_color(c(MUTED))
+                    .child(if active { "Say something — it's listening." } else { "Press the button and just talk. Space cuts it off. ⌘↩ starts or ends the call." })
+                    .into_any_element()
+            } else {
+                transcript_body.into_any_element()
+            });
+
+        let chip = |id: &'static str, label: &'static str, on: bool, enabled: bool| {
+            div()
+                .id(id)
+                .px_3()
+                .py_1()
+                .rounded_full()
+                .border_1()
+                .border_color(if on { with_alpha(AMBER, 0.6) } else { c(HAIRLINE) })
+                .bg(if on { with_alpha(AMBER, 0.12) } else { c(INK) })
+                .text_xs()
+                .text_color(if !enabled { c(IDLE) } else if on { c(AMBER) } else { c(IVORY_DIM) })
+                .when(enabled, |d| d.cursor_pointer().hover(|d| d.border_color(with_alpha(IVORY, 0.4))))
+                .child(label)
+        };
+
+        let call_button = div()
+            .id("call-button")
+            .size(px(60.))
+            .rounded_full()
+            .flex()
+            .items_center()
+            .justify_center()
+            .cursor_pointer()
+            .bg(if active { c(CORAL) } else { c(SAGE) })
+            .hover(|d| d.opacity(0.9))
+            .text_sm()
+            .font_weight(FontWeight::SEMIBOLD)
+            .text_color(c(INK))
+            .child(if active { "End" } else if self.starting { "…" } else { "Call" })
+            .on_click(cx.listener(|this, _, w, cx| {
+                if this.active() {
+                    this.hangup(cx)
+                } else {
+                    this.start(w, cx)
+                }
+            }));
+
+        let dock = h_flex()
+            .flex_shrink_0()
+            .w_full()
+            .px_6()
+            .py_4()
+            .gap_4()
+            .items_center()
+            .justify_center()
+            .border_t_1()
+            .border_color(c(HAIRLINE))
+            .bg(c(PANEL))
+            .child(
+                chip("duck", "Mute other apps while it speaks", duck, true).on_click(cx.listener(move |_, _, _, cx| {
+                    cx.global_mut::<AppState>().settings.audio.duck = if duck { DuckMode::Off } else { DuckMode::Mute };
+                    save_settings(cx);
+                    cx.notify();
+                })),
+            )
+            .child(chip("interrupt", "Cut in (space)", false, active).when(active, |d| d.on_click(cx.listener(|this, _, w, cx| this.interrupt(&Interrupt, w, cx)))))
+            .child(call_button)
+            .child(
+                chip("media", if has_profile { "Only my voice interrupts" } else { "Only my voice interrupts · enroll first" }, media_mode, has_profile).when(has_profile, |d| {
+                    d.on_click(cx.listener(move |_, _, _, cx| {
+                        cx.global_mut::<AppState>().settings.media_mode = !media_mode;
+                        save_settings(cx);
+                        cx.notify();
+                    }))
+                }),
+            );
 
         v_flex()
             .id("call-view")
@@ -245,88 +366,8 @@ impl Render for CallView {
             .on_action(cx.listener(Self::interrupt))
             .on_action(cx.listener(Self::toggle_call))
             .size_full()
-            // header
-            .child(
-                h_flex()
-                    .px_4()
-                    .py_3()
-                    .gap_3()
-                    .items_center()
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(div().size(px(10.)).rounded_full().bg(tone_color))
-                    .child(div().font_weight(FontWeight::MEDIUM).child(label))
-                    .when_some(self.gate, |d, g| d.child(div().text_xs().text_color(theme.muted_foreground).child(format!("gate {g:?}"))))
-                    .when(self.ducked, |d| d.child(div().text_xs().px_2().py_0p5().rounded_md().bg(theme.warning).text_color(theme.warning_foreground).child("other audio muted")))
-                    .child(div().flex_1())
-                    // level meter
-                    .child(
-                        div().w(px(120.)).h(px(6.)).rounded_full().bg(theme.muted).child(
-                            div().h_full().rounded_full().bg(theme.primary).w(relative(self.level.clamp(0.0, 1.0))),
-                        ),
-                    ),
-            )
-            // transcript
-            .child(
-                div()
-                    .id("transcript")
-                    .flex_1()
-                    .min_h_0()
-                    .overflow_y_scroll()
-                    .track_scroll(&self.scroll)
-                    .child(if self.state.turns.is_empty() {
-                        div()
-                            .size_full()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .text_color(theme.muted_foreground)
-                            .child(if active { "Say something." } else { "Start a call and just talk. Space interrupts; ⌘↩ starts/ends." })
-                            .into_any_element()
-                    } else {
-                        transcript.into_any_element()
-                    }),
-            )
-            // hint / error line
-            .when_some(hint, |d, h| d.child(div().px_4().py_1().text_xs().text_color(theme.muted_foreground).child(h)))
-            .when_some(self.state.error.clone(), |d, e| d.child(div().px_4().py_1().text_xs().text_color(theme.danger).child(e)))
-            // controls
-            .child(
-                h_flex()
-                    .px_4()
-                    .py_3()
-                    .gap_3()
-                    .items_center()
-                    .border_t_1()
-                    .border_color(theme.border)
-                    .child(if active {
-                        Button::new("hangup").danger().label("Hang up").on_click(cx.listener(|this, _, _, cx| this.hangup(cx)))
-                    } else {
-                        Button::new("start").primary().label(if self.starting { "Starting…" } else { "Start call" }).loading(self.starting).on_click(cx.listener(|this, _, w, cx| this.start(w, cx)))
-                    })
-                    .child(Button::new("interrupt").outline().label("Interrupt (space)").disabled(!active).on_click(cx.listener(|this, _, w, cx| this.interrupt(&Interrupt, w, cx))))
-                    .child(div().flex_1())
-                    .child(
-                        Switch::new("duck")
-                            .checked(duck)
-                            .label("Mute other apps while speaking")
-                            .on_click(cx.listener(|_, on: &bool, _, cx| {
-                                cx.global_mut::<AppState>().settings.audio.duck = if *on { DuckMode::Mute } else { DuckMode::Off };
-                                save_settings(cx);
-                                cx.notify();
-                            })),
-                    )
-                    .child(
-                        Switch::new("media")
-                            .checked(media_mode)
-                            .disabled(!has_profile)
-                            .label(if has_profile { "Media mode" } else { "Media mode (enroll first)" })
-                            .on_click(cx.listener(|_, on: &bool, _, cx| {
-                                cx.global_mut::<AppState>().settings.media_mode = *on;
-                                save_settings(cx);
-                                cx.notify();
-                            })),
-                    ),
-            )
+            .child(stage)
+            .child(transcript)
+            .child(dock)
     }
 }

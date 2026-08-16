@@ -20,7 +20,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::task::AbortHandle;
 use voice_audio::engine::{AudioEngine, EngineConfig};
 use voice_audio::sink::{PlaybackSink, SinkEvent};
-use voice_core::call_machine::{CallConfig, CallMachine, CallState, Command, Input, Outcome, ReqId, SegmentId, TimerId, TurnId};
+use voice_core::call_machine::{CallConfig, CallMachine, CallState, CallStatus, Command, Input, Outcome, ReqId, SegmentId, TimerId, TurnId};
 use voice_core::media_gate::GateState;
 use voice_core::speaker_profile::SpeakerProfile;
 use voice_providers::{
@@ -150,6 +150,15 @@ fn mock_providers(s: &Settings) -> Providers {
     }
 }
 
+#[derive(Clone, Copy)]
+struct ProactiveSettings {
+    idle_secs: u32,
+}
+
+const GREETING: &str = "The call just started. Greet the user warmly in one short sentence and ask one open, friendly question to get the conversation going. Use the language of your instructions.";
+const NUDGE_1: &str = "The user has been quiet for a while. Gently keep the conversation going: pick up the last topic with a short, specific follow-up question, or offer one interesting related thought. One or two spoken sentences.";
+const NUDGE_2: &str = "Still quiet. Say one short, light sentence to check in — no pressure, no repetition of what you already said.";
+
 struct Driver {
     machine: CallMachine,
     providers: Providers,
@@ -170,6 +179,12 @@ struct Driver {
     ducker: Option<Box<dyn voice_os::MediaDucker>>,
     duck_restore: Option<AbortHandle>,
     last_state: Option<CallState>,
+    proactive: Option<ProactiveSettings>,
+    /// When the call last became quietly-listening.
+    listening_since: Option<Instant>,
+    /// Consecutive nudges without the user saying anything.
+    nudges: u32,
+    user_turns: usize,
     pipeline_stop: Arc<AtomicBool>,
     pipeline_thread: Option<std::thread::JoinHandle<()>>,
 }
@@ -272,6 +287,10 @@ impl Driver {
             ducker,
             duck_restore: None,
             last_state: None,
+            proactive: settings.turn.proactive.then_some(ProactiveSettings { idle_secs: settings.turn.idle_nudge_secs.max(5) }),
+            listening_since: None,
+            nudges: 0,
+            user_turns: 0,
             pipeline_stop,
             pipeline_thread: Some(pipeline_thread),
         })
@@ -287,10 +306,17 @@ impl Driver {
         let mut sink_rx = self.sink_rx.take().unwrap();
         self.emit_state();
         tracing::info!("driver running");
+        let mut tick = tokio::time::interval(Duration::from_millis(500));
         loop {
             tokio::select! {
+                _ = tick.tick() => self.maybe_nudge(),
                 Some(cmd) = cmds.recv() => match cmd {
-                    RuntimeCommand::Start => self.step(Input::Start),
+                    RuntimeCommand::Start => {
+                        self.step(Input::Start);
+                        if self.proactive.is_some() {
+                            self.step(Input::Proactive { instruction: GREETING.into() });
+                        }
+                    }
                     RuntimeCommand::Hangup => self.hangup(),
                     RuntimeCommand::Interrupt => self.step(Input::Interrupt),
                     RuntimeCommand::Shutdown => break,
@@ -356,9 +382,35 @@ impl Driver {
     fn emit_state(&mut self) {
         let st = self.machine.state();
         if self.last_state.as_ref() != Some(&st) {
+            // Proactivity bookkeeping: reset the nudge count when the user actually says
+            // something; time the quiet stretch from the moment we return to Listening.
+            let user_turns = st.turns.iter().filter(|t| t.role == voice_core::call_machine::Role::User).count();
+            if user_turns != self.user_turns {
+                self.user_turns = user_turns;
+                self.nudges = 0;
+            }
+            if st.status == CallStatus::Listening {
+                if self.listening_since.is_none() {
+                    self.listening_since = Some(Instant::now());
+                }
+            } else {
+                self.listening_since = None;
+            }
             self.last_state = Some(st.clone());
             let _ = self.events.send(RuntimeEvent::State(st));
         }
+    }
+
+    fn maybe_nudge(&mut self) {
+        let Some(p) = self.proactive else { return };
+        let Some(since) = self.listening_since else { return };
+        if self.nudges >= 2 || since.elapsed().as_secs() < p.idle_secs as u64 {
+            return;
+        }
+        let instruction = if self.nudges == 0 { NUDGE_1 } else { NUDGE_2 };
+        self.nudges += 1;
+        self.listening_since = None;
+        self.step(Input::Proactive { instruction: instruction.into() });
     }
 
     // ---------- ducking ----------
@@ -429,8 +481,11 @@ impl Driver {
                 self.stt_tasks.insert(req, h.abort_handle());
             }
             Command::CancelTranscribe { req } => abort(&mut self.stt_tasks, &req),
-            Command::RunAgent { turn, history } => {
+            Command::RunAgent { turn, mut history, nudge } => {
                 let agent = self.providers.agent.clone();
+                if let Some(n) = nudge {
+                    history.push(voice_core::call_machine::ChatMessage { role: voice_core::call_machine::Role::User, content: format!("(system note, not spoken by the user: {n})") });
+                }
                 let h = tokio::spawn(async move {
                     let error = match agent.run(history).await {
                         Ok(mut stream) => {

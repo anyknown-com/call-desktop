@@ -59,7 +59,7 @@ impl H {
         match c {
             Command::Transcribe { req, .. } => self.stt.push(req),
             Command::CancelTranscribe { req } => self.stt_cancelled.push(req),
-            Command::RunAgent { turn, history } => self.agents.push((turn, history)),
+            Command::RunAgent { turn, history, .. } => self.agents.push((turn, history)),
             Command::CancelAgent { turn } => self.agents_cancelled.push(turn),
             Command::Synthesize { seg, text, priority, .. } => {
                 self.synth.push((seg, text, priority));
@@ -190,6 +190,27 @@ fn basic_turn_flow() {
     h.speak();
     h.stt_answer_oldest("再見");
     assert_eq!(h.agents[1].1, vec![user("你好"), assistant("你好！很高興認識你。"), user("再見")]);
+}
+
+#[test]
+fn proactive_only_when_quietly_listening() {
+    let mut h = H::new(false, false);
+    h.step(Input::Proactive { instruction: "greet".into() });
+    assert_eq!(h.agents.len(), 1);
+    assert!(h.agents[0].1.is_empty()); // no user turn was invented
+    assert_eq!(h.status(), CallStatus::Thinking);
+    // busy → ignored
+    h.step(Input::Proactive { instruction: "again".into() });
+    assert_eq!(h.agents.len(), 1);
+    h.agent_push("Hi there, how are you today?");
+    h.agent_done();
+    h.play_all_ended();
+    assert_eq!(h.status(), CallStatus::Listening);
+    assert_eq!(h.m.history().len(), 1);
+    // user speaking → ignored
+    h.step(Input::SpeechStart);
+    h.step(Input::Proactive { instruction: "x".into() });
+    assert_eq!(h.agents.len(), 1);
 }
 
 #[test]

@@ -84,10 +84,14 @@ pub struct TurnSettings {
     pub commit_ms: u32,
     /// Let the fast model decide how to handle short remarks (react / ignore / stop).
     pub interjections: bool,
+    /// The assistant greets you when the call starts and keeps the conversation going when
+    /// you've been quiet for `idle_nudge_secs` (at most twice in a row).
+    pub proactive: bool,
+    pub idle_nudge_secs: u32,
 }
 impl Default for TurnSettings {
     fn default() -> Self {
-        Self { semantic: true, hold_ms: 6000, commit_ms: 1200, interjections: true }
+        Self { semantic: true, hold_ms: 6000, commit_ms: 1200, interjections: true, proactive: true, idle_nudge_secs: 20 }
     }
 }
 

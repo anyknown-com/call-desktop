@@ -2,13 +2,14 @@
 //! Every change is saved immediately.
 
 use crate::app::{save_settings, AppState};
+use crate::palette::{c, DISPLAY_FONT, HAIRLINE, IVORY, IVORY_DIM, MUTED, PANEL};
 use gpui::*;
 use gpui_component::{
     button::*,
     input::{Input, InputEvent, InputState},
     select::{SearchableVec, Select, SelectEvent, SelectState},
     switch::Switch,
-    h_flex, v_flex, ActiveTheme, IndexPath, Sizable, WindowExt,
+    h_flex, v_flex, IndexPath, Sizable, WindowExt,
 };
 use voice_providers::{Effort, LlmProvider};
 use voice_runtime::settings::{Keys, Settings, TtsProvider};
@@ -43,6 +44,7 @@ pub struct SettingsView {
     // turn
     hold_ms: Entity<InputState>,
     commit_ms: Entity<InputState>,
+    idle_secs: Entity<InputState>,
     // audio
     input_dev: Entity<Sel>,
     output_dev: Entity<Sel>,
@@ -87,6 +89,11 @@ impl SettingsView {
         let commit_ms = text(cx, &s.turn.commit_ms.to_string(), "1200", |s, v| {
             if let Ok(n) = v.trim().parse() {
                 s.turn.commit_ms = n
+            }
+        });
+        let idle_secs = text(cx, &s.turn.idle_nudge_secs.to_string(), "20", |s, v| {
+            if let Ok(n) = v.trim().parse() {
+                s.turn.idle_nudge_secs = n
             }
         });
         let silence_ms = text(cx, &s.audio.silence_ms.to_string(), "700", |s, v| {
@@ -174,6 +181,7 @@ impl SettingsView {
             oa_voice,
             hold_ms,
             commit_ms,
+            idle_secs,
             input_dev,
             output_dev,
             input_names,
@@ -189,12 +197,23 @@ fn parse_effort(v: &str) -> Effort {
     EFFORTS.iter().copied().find(|e| effort_label(*e).as_ref() == v).unwrap_or(Effort::Unset)
 }
 
-fn section(title: &'static str, cx: &App) -> Div {
-    v_flex().gap_3().p_4().rounded_lg().border_1().border_color(cx.theme().border).child(div().font_weight(FontWeight::SEMIBOLD).child(title))
+fn section(title: &'static str, _cx: &App) -> Div {
+    v_flex()
+        .gap_3()
+        .p_5()
+        .rounded_xl()
+        .bg(c(PANEL))
+        .border_1()
+        .border_color(c(HAIRLINE))
+        .child(div().font_family(DISPLAY_FONT).italic().text_lg().text_color(c(IVORY)).child(title))
 }
 
-fn row(label: &'static str, control: impl IntoElement, cx: &App) -> impl IntoElement {
-    h_flex().gap_3().items_center().child(div().w(px(200.)).text_sm().text_color(cx.theme().muted_foreground).child(label)).child(div().flex_1().child(control))
+fn row(label: &'static str, control: impl IntoElement, _cx: &App) -> impl IntoElement {
+    h_flex().gap_3().items_center().child(div().w(px(200.)).flex_shrink_0().text_sm().text_color(c(MUTED)).child(label)).child(div().flex_1().min_w_0().child(control))
+}
+
+pub fn page_title(t: &'static str) -> Div {
+    div().font_family(DISPLAY_FONT).italic().text_2xl().text_color(c(IVORY)).child(t)
 }
 
 impl Render for SettingsView {
@@ -204,7 +223,7 @@ impl Render for SettingsView {
             (g.settings.clone(), g.keys.clone())
         };
         let key_status = |present: bool| if present { "stored ✓" } else { "not set" };
-        let _ = (&self.input_names, &self.output_names);
+        let _ = (&self.input_names, &self.output_names, IVORY_DIM);
 
         div()
             .id("settings")
@@ -215,10 +234,10 @@ impl Render for SettingsView {
                     .gap_4()
                     .p_6()
                     .max_w(px(760.))
-                    .child(div().text_xl().font_weight(FontWeight::BOLD).child("Settings"))
+                    .child(page_title("Settings"))
                     .child(
                         section("API keys", cx)
-                            .child(div().flex_shrink_0().text_xs().text_color(cx.theme().muted_foreground).child("Stored in the macOS keychain, never in the settings file. Env vars OPENAI_API_KEY / ANTHROPIC_API_KEY / ELEVENLABS_API_KEY also work."))
+                            .child(div().flex_shrink_0().text_xs().text_color(c(MUTED)).child("Stored in the macOS keychain, never in the settings file. Env vars OPENAI_API_KEY / ANTHROPIC_API_KEY / ELEVENLABS_API_KEY also work."))
                             .child(row("ElevenLabs (STT + TTS)", h_flex().gap_2().items_center().child(Input::new(&self.key_elevenlabs).small()).child(div().text_xs().child(key_status(!keys.elevenlabs.is_empty()))), cx))
                             .child(row("OpenAI", h_flex().gap_2().items_center().child(Input::new(&self.key_openai).small()).child(div().text_xs().child(key_status(!keys.openai.is_empty()))), cx))
                             .child(row("Anthropic", h_flex().gap_2().items_center().child(Input::new(&self.key_anthropic).small()).child(div().text_xs().child(key_status(!keys.anthropic.is_empty()))), cx))
@@ -263,6 +282,16 @@ impl Render for SettingsView {
                                 })),
                                 cx,
                             ))
+                            .child(row(
+                                "Keeps the conversation going",
+                                Switch::new("proactive").checked(settings.turn.proactive).label("Greets you at the start and follows up when you go quiet").on_click(cx.listener(|_, on: &bool, _, cx| {
+                                    cx.global_mut::<AppState>().settings.turn.proactive = *on;
+                                    save_settings(cx);
+                                    cx.notify();
+                                })),
+                                cx,
+                            ))
+                            .child(row("Follow up after quiet (s)", Input::new(&self.idle_secs).small(), cx))
                             .child(row("Hold after “incomplete” (ms)", Input::new(&self.hold_ms).small(), cx))
                             .child(row("Interrupt commit (ms)", Input::new(&self.commit_ms).small(), cx))
                             .child(row(
@@ -298,7 +327,7 @@ impl Render for SettingsView {
                                 })),
                                 cx,
                             ))
-                            .child(div().text_xs().text_color(cx.theme().muted_foreground).child("Echo cancellation is always on. Device changes apply to the next call.")),
+                            .child(div().text_xs().text_color(c(MUTED)).child("Echo cancellation is always on. Device changes apply to the next call.")),
                     ),
             )
     }

@@ -127,6 +127,9 @@ pub enum Input {
     /// VAD: an utterance finished; mono float PCM at `sample_rate`.
     SpeechEnd { audio: Vec<f32>, sample_rate: u32 },
     SttResult { req: ReqId, outcome: Outcome<String> },
+    /// Ask the assistant to speak up on its own (greeting, idle nudge). Ignored unless the call
+    /// is quietly listening: no assistant turn, no pending user text, nobody speaking.
+    Proactive { instruction: String },
     AgentDelta { turn: TurnId, delta: String },
     /// Agent stream ended. `error` = Some when it failed (not when we cancelled it).
     AgentFinished { turn: TurnId, error: Option<String> },
@@ -145,7 +148,8 @@ pub enum Input {
 pub enum Command {
     Transcribe { req: ReqId, audio: Vec<f32>, sample_rate: u32, timeout_ms: f64 },
     CancelTranscribe { req: ReqId },
-    RunAgent { turn: TurnId, history: Vec<ChatMessage> },
+    /// `nudge` = a one-off instruction for a proactive turn (not part of the history).
+    RunAgent { turn: TurnId, history: Vec<ChatMessage>, nudge: Option<String> },
     CancelAgent { turn: TurnId },
     /// Declare a playback segment (in play order; `priority` puts it in front of the paused/current
     /// one), synthesize `text`, stream PCM into the sink for `seg`, then end the segment. Report
@@ -420,6 +424,12 @@ impl CallMachine {
                 if let Some(item) = self.stt_queue.iter_mut().find(|i| i.req == req) {
                     item.outcome = Some(outcome);
                     self.drain(now, &mut out);
+                }
+            }
+            Input::Proactive { instruction } => {
+                let quiet = self.active && self.current.is_none() && self.pending.is_none() && self.stt_queue.is_empty() && !self.user_speaking && self.interruption.is_none();
+                if quiet {
+                    self.start_assistant_turn(Some(instruction), &mut out);
                 }
             }
             Input::AgentDelta { turn, delta } => self.on_agent_delta(turn, &delta, &mut out),
@@ -781,7 +791,7 @@ impl CallMachine {
         self.history.push(ChatMessage { role: Role::User, content: p.text.clone() });
         let id = TurnId(self.fresh());
         self.turns.push(Turn { id, role: Role::User, text: p.text, at: self.now, interrupted: false, kind: None, is_final: true });
-        self.start_assistant_turn(out);
+        self.start_assistant_turn(None, out);
     }
 
     fn clear_pending(&mut self, abort_judge: bool, out: &mut Vec<Command>) {
@@ -812,7 +822,7 @@ impl CallMachine {
 
     // ---------- assistant turn ----------
 
-    fn start_assistant_turn(&mut self, out: &mut Vec<Command>) {
+    fn start_assistant_turn(&mut self, nudge: Option<String>, out: &mut Vec<Command>) {
         let id = TurnId(self.fresh());
         self.turns.push(Turn { id, role: Role::Assistant, text: String::new(), at: self.now, interrupted: false, kind: None, is_final: false });
         let turn_index = self.turns.len() - 1;
@@ -825,7 +835,7 @@ impl CallMachine {
             busy: false,
             pending_interjection_text: String::new(),
         });
-        out.push(Command::RunAgent { turn: id, history: self.history.clone() });
+        out.push(Command::RunAgent { turn: id, history: self.history.clone(), nudge });
     }
 
     fn on_agent_delta(&mut self, turn: TurnId, delta: &str, out: &mut Vec<Command>) {

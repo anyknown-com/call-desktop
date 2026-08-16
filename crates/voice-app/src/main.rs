@@ -3,6 +3,7 @@
 mod app;
 mod call_view;
 mod history_view;
+mod palette;
 mod settings_view;
 mod voice_view;
 
