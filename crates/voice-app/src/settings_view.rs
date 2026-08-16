@@ -236,7 +236,7 @@ impl Render for SettingsView {
                     .child(page_title("Settings"))
                     .child(
                         section("API keys", cx)
-                            .child(div().flex_shrink_0().text_xs().text_color(c(TEXT_3)).child("Stored in the macOS keychain, never in the settings file. Env vars OPENAI_API_KEY / ANTHROPIC_API_KEY / ELEVENLABS_API_KEY also work."))
+                            .child(div().flex_shrink_0().text_xs().text_color(c(TEXT_3)).child("Kept in a private file in this app's data folder (never in the settings file, and no keychain prompts). Env vars OPENAI_API_KEY / ANTHROPIC_API_KEY / ELEVENLABS_API_KEY also work."))
                             .child(row("ElevenLabs (STT + TTS)", h_flex().gap_2().items_center().child(Input::new(&self.key_elevenlabs).small()).child(div().text_xs().child(key_status(!keys.elevenlabs.is_empty()))), cx))
                             .child(row("OpenAI", h_flex().gap_2().items_center().child(Input::new(&self.key_openai).small()).child(div().text_xs().child(key_status(!keys.openai.is_empty()))), cx))
                             .child(row("Anthropic", h_flex().gap_2().items_center().child(Input::new(&self.key_anthropic).small()).child(div().text_xs().child(key_status(!keys.anthropic.is_empty()))), cx))
@@ -246,7 +246,7 @@ impl Render for SettingsView {
                                         let _ = Keys::store(a, "");
                                     }
                                     cx.global_mut::<AppState>().keys = Keys::load();
-                                    window.push_notification(gpui_component::notification::Notification::info("Keys removed from keychain."), cx);
+                                    window.push_notification(gpui_component::notification::Notification::info("Keys removed."), cx);
                                     cx.notify();
                                 })),
                             ),

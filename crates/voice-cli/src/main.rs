@@ -47,7 +47,7 @@ enum Cmd {
     Enroll,
     /// List audio devices.
     Devices,
-    /// Store an API key in the OS keychain (prompts for the value).
+    /// Store an API key (prompts for the value; kept in the app's private keys.json).
     Keys {
         #[command(subcommand)]
         cmd: KeysCmd,
@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
                 }
                 let v = rpassword::prompt_password(format!("{account} API key (input hidden): "))?;
                 Keys::store(&account, v.trim())?;
-                println!("stored in keychain ({})", Keys::SERVICE);
+                println!("stored in {}", Keys::path().map(|p| p.display().to_string()).unwrap_or_default());
             }
             KeysCmd::Status => {
                 let k = Keys::load();
