@@ -286,6 +286,7 @@ impl Driver {
         let mut pipe_rx = self.pipe_rx.take().unwrap();
         let mut sink_rx = self.sink_rx.take().unwrap();
         self.emit_state();
+        tracing::info!("driver running");
         loop {
             tokio::select! {
                 Some(cmd) = cmds.recv() => match cmd {
@@ -310,6 +311,7 @@ impl Driver {
                 else => break,
             }
         }
+        tracing::info!("driver stopping");
         self.hangup();
         self.restore_duck();
         self.pipeline_stop.store(true, Ordering::Relaxed);

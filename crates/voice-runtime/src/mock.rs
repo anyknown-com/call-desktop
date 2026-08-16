@@ -1,5 +1,5 @@
 //! Mock providers for the e2e harness (`voice call --mock`): no network, deterministic.
-//! STT returns a canned transcript, the agent echoes it in two sentences, TTS produces a tone.
+//! STT returns a canned transcript, the agent echoes it in two sentences, TTS produces silence.
 
 use async_trait::async_trait;
 use futures::{stream, StreamExt};
@@ -56,24 +56,12 @@ pub struct MockTts;
 #[async_trait]
 impl TtsClient for MockTts {
     async fn synthesize(&self, text: &str) -> Result<PcmStream> {
-        // ~55 ms per character of a soft 330 Hz tone with a gentle amplitude envelope, 24 kHz,
-        // streamed in 100 ms chunks after a 200 ms "network" delay.
+        // Silence (never a tone — it is unpleasant): ~55 ms per character, 24 kHz, streamed in
+        // 100 ms chunks after a 200 ms "network" delay, so timing/segment bookkeeping is exercised.
         tokio::time::sleep(Duration::from_millis(200)).await;
         let secs = (text.chars().count() as f64 * 0.055).clamp(0.6, 6.0);
         let total = (secs * 24000.0) as usize;
-        let chunks: Vec<Vec<f32>> = (0..total)
-            .collect::<Vec<_>>()
-            .chunks(2400)
-            .map(|c| {
-                c.iter()
-                    .map(|&i| {
-                        let t = i as f32 / 24000.0;
-                        let env = (1.0 + (2.0 * std::f32::consts::PI * 2.0 * t).sin()) * 0.5;
-                        0.15 * env * (2.0 * std::f32::consts::PI * 330.0 * t).sin()
-                    })
-                    .collect()
-            })
-            .collect();
+        let chunks: Vec<Vec<f32>> = (0..total.div_ceil(2400)).map(|i| vec![0f32; 2400.min(total - i * 2400)]).collect();
         let s = stream::iter(chunks.into_iter().map(Ok)).then(|c| async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
             c

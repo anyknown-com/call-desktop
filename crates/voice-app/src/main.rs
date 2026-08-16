@@ -1,22 +1,63 @@
-use gpui::*;
-use gpui_component::{button::*, *};
+//! voice-app — GPUI desktop front-end over `voice_runtime`.
 
-pub struct HelloWorld;
-impl Render for HelloWorld {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().v_flex().gap_2().size_full().items_center().justify_center().child("voice").child(Button::new("ok").primary().label("Start call"))
+mod app;
+mod call_view;
+mod history_view;
+mod settings_view;
+mod voice_view;
+
+use gpui::*;
+use gpui_component::Root;
+use std::sync::OnceLock;
+
+/// The tokio runtime that hosts `voice_runtime` (network + timers). GPUI has its own executor;
+/// tokio channels bridge the two.
+pub static TOKIO: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+
+pub fn tokio() -> &'static tokio::runtime::Runtime {
+    TOKIO.get().expect("tokio runtime")
+}
+
+pub fn models_dir() -> std::path::PathBuf {
+    if let Ok(d) = std::env::var("VOICE_MODELS_DIR") {
+        return d.into();
     }
+    if let Ok(exe) = std::env::current_exe() {
+        // Bundled: Contents/MacOS/voice-app → Contents/Resources/models
+        for cand in [exe.parent().map(|p| p.join("models")), exe.parent().and_then(|p| p.parent()).map(|p| p.join("Resources/models"))].into_iter().flatten() {
+            if cand.exists() {
+                return cand;
+            }
+        }
+    }
+    voice_ml::models::default_dir()
 }
 
 fn main() {
-    let app = Application::new();
-    app.run(move |cx| {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env().add_directive("voice=info".parse().unwrap()))
+        .with_writer(std::io::stderr)
+        .init();
+    voice_os::recover_after_crash();
+    TOKIO.set(tokio::runtime::Builder::new_multi_thread().enable_all().worker_threads(2).build().expect("tokio")).ok();
+
+    let application = Application::new();
+    application.run(move |cx| {
         gpui_component::init(cx);
+        app::init(cx);
         cx.spawn(async move |cx| {
-            cx.open_window(WindowOptions::default(), |window, cx| {
-                let view = cx.new(|_| HelloWorld);
-                cx.new(|cx| Root::new(view, window, cx))
-            })?;
+            let bounds = cx.update(|cx| Bounds::centered(None, size(px(1040.), px(720.)), cx))?;
+            cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    titlebar: Some(TitlebarOptions { title: Some("voice".into()), ..Default::default() }),
+                    ..Default::default()
+                },
+                |window, cx| {
+                    let view = cx.new(|cx| app::AppView::new(window, cx));
+                    cx.new(|cx| Root::new(view, window, cx))
+                },
+            )?;
             Ok::<_, anyhow::Error>(())
         })
         .detach();
