@@ -111,6 +111,8 @@ impl Render for LogsView {
                         let sel = self.selected == Some(i);
                         v_flex()
                             .id(("log", i))
+                            .w(px(256.))
+                            .flex_shrink_0()
                             .p_3()
                             .gap_1()
                             .rounded_lg()
@@ -124,10 +126,10 @@ impl Render for LogsView {
                                     .justify_between()
                                     .items_center()
                                     .gap_2()
-                                    .child(div().text_sm().font_weight(FontWeight::MEDIUM).text_color(c(TEXT)).overflow_hidden().child(e.title.clone()))
-                                    .child(div().font_family(MONO).text_xs().text_color(c(TEXT_3)).flex_shrink_0().child(e.when.clone())),
+                                    .child(div().w(px(140.)).flex_shrink_0().text_sm().font_weight(FontWeight::MEDIUM).text_color(c(TEXT)).overflow_hidden().whitespace_nowrap().text_ellipsis().child(e.title.clone()))
+                                    .child(div().font_family(MONO).text_xs().text_color(c(TEXT_3)).flex_shrink_0().whitespace_nowrap().child(e.when.clone())),
                             )
-                            .when(!e.snippet.is_empty(), |d| d.child(div().text_xs().text_color(c(TEXT_2)).child(e.snippet.clone())))
+                            .when(!e.snippet.is_empty(), |d| d.child(div().w(px(232.)).flex_shrink_0().text_xs().text_color(c(TEXT_2)).child(e.snippet.clone())))
                             .child(
                                 h_flex().gap_1().items_center().pt_1().child(svg().path("icons/clock.svg").size(px(11.)).text_color(c(TEXT_3))).child(
                                     div().font_family(MONO).text_xs().text_color(c(TEXT_3)).child(format!("{} turns", e.turns.len())),

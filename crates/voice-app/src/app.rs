@@ -144,10 +144,12 @@ impl AppView {
                             div()
                                 .w_full()
                                 .flex()
+                                .flex_shrink_0()
                                 .when(is_user, |d| d.justify_end())
                                 .child(
                                     v_flex()
-                                        .max_w(px(260.))
+                                        .w(px(268.))
+                                        .flex_shrink_0()
                                         .p_3()
                                         .gap_1()
                                         .rounded_lg()
@@ -161,7 +163,7 @@ impl AppView {
                                                 .child(div().text_xs().font_weight(FontWeight::SEMIBOLD).text_color(if is_user { c(ACCENT_TEXT) } else { c(SUCCESS) }).child(who))
                                                 .child(div().font_family(MONO).text_xs().text_color(if is_user { with_alpha(ACCENT_TEXT, 0.7) } else { c(TEXT_3) }).child(time)),
                                         )
-                                        .child(div().text_sm().text_color(if is_user { c(ACCENT_TEXT) } else { c(TEXT) }).child(text))
+                                        .child(div().w(px(242.)).text_sm().text_color(if is_user { c(ACCENT_TEXT) } else { c(TEXT) }).child(text))
                                         .when(t.interrupted, |d| d.child(div().text_xs().text_color(if is_user { with_alpha(ACCENT_TEXT, 0.7) } else { c(TEXT_3) }).child("cut off"))),
                                 )
                         }))
