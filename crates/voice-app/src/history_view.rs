@@ -47,7 +47,7 @@ impl LogsView {
                     let Ok(turns) = serde_json::from_slice::<Vec<Turn>>(&bytes) else { continue };
                     let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                     // "2026-08-16_09-24-37" → "08-16 09:24"
-                    let when = stem.get(5..16).map(|s| s.replace('_', " ").replacen('-', "-", 1)).unwrap_or(stem.clone());
+                    let when = stem.get(5..16).map(|s| s.replace('_', " ")).unwrap_or(stem.clone());
                     let when = when.chars().enumerate().map(|(i, ch)| if i >= 6 && ch == '-' { ':' } else { ch }).collect::<String>();
                     let title = turns.iter().find(|t| t.role == Role::User).map(|t| trim(&t.text, 34)).unwrap_or_else(|| "Call".into());
                     let snippet = turns.iter().find(|t| t.role == Role::Assistant).map(|t| trim(&t.text, 90)).unwrap_or_default();
