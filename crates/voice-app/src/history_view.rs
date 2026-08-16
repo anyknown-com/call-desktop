@@ -44,7 +44,7 @@ impl LogsView {
                         continue;
                     }
                     let Ok(bytes) = std::fs::read(&p) else { continue };
-                    let Ok(turns) = serde_json::from_slice::<Vec<Turn>>(&bytes) else { continue };
+                    let Ok(turns) = voice_runtime::transcript::CallRecord::from_json(&bytes).map(|r| r.turns) else { continue };
                     let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                     // "2026-08-16_09-24-37" → "08-16 09:24"
                     let when = stem.get(5..16).map(|s| s.replace('_', " ")).unwrap_or(stem.clone());

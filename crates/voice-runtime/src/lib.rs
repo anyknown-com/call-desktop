@@ -13,6 +13,7 @@ mod proactive;
 mod providers;
 pub mod settings;
 pub mod transcript;
+pub mod usage;
 
 use anyhow::Result;
 use driver::Driver;

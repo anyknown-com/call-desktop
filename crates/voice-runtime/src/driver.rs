@@ -6,6 +6,7 @@ use crate::pipeline::{self, PipelineOut};
 use crate::proactive::{Proactivity, GREETING};
 use crate::providers::{build_providers, mock_providers, Providers};
 use crate::settings::DuckMode;
+use crate::usage::Usage;
 use crate::{transcript, RuntimeCommand, RuntimeEvent, RuntimeOptions};
 use anyhow::{anyhow, Context, Result};
 use futures::StreamExt;
@@ -40,6 +41,7 @@ pub struct Driver {
     last_state: Option<CallState>,
     proactive: Option<Proactivity>,
     mic_muted: bool,
+    usage: Usage,
     pipeline_stop: Arc<AtomicBool>,
     pipeline_thread: Option<std::thread::JoinHandle<()>>,
 }
@@ -133,6 +135,7 @@ impl Driver {
             ducking,
             last_state: None,
             mic_muted: false,
+            usage: Usage::new(&settings),
             proactive: settings.turn.proactive.then(|| Proactivity::new(settings.turn.idle_nudge_secs)),
             pipeline_stop,
             pipeline_thread: Some(pipeline_thread),
@@ -214,7 +217,7 @@ impl Driver {
             return;
         }
         self.step(Input::Hangup);
-        match transcript::save(self.machine.turns()) {
+        match transcript::save(self.machine.turns(), &self.usage) {
             Ok(Some(p)) => {
                 let _ = self.events.send(RuntimeEvent::Saved(p));
             }
@@ -235,8 +238,11 @@ impl Driver {
             }
             return;
         }
-        let cmds = self.machine.handle(input, self.now());
+        let now = self.now();
+        self.usage.on_input(&input, now);
+        let cmds = self.machine.handle(input, now);
         for c in cmds {
+            self.usage.on_command(&c);
             self.exec(c);
         }
         self.emit_state();
