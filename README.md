@@ -29,7 +29,7 @@ cargo test --workspace
 ## Use (CLI)
 
 ```sh
-voice keys set elevenlabs      # stored in the macOS keychain (also: openai, anthropic)
+voice keys set elevenlabs      # stored in a private keys.json (also: openai, anthropic, llm)
 voice keys set openai
 voice settings                 # prints/creates ~/Library/Application Support/com.anyknown.voice/settings.json
 voice devices
@@ -43,6 +43,8 @@ voice call --mock --mic-wav some.wav --seconds 30   # offline e2e harness (no ke
 ```
 
 Env fallbacks for keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`.
+Any OpenAI- or Anthropic-compatible endpoint (DeepSeek, Cloudflare AI Gateway, a local server…) works:
+set `llm.baseUrl` in settings (or Settings › Language model › Base URL) and `voice keys set llm`.
 `VOICE_MODELS_DIR` overrides the models directory.
 
 ## Layout

@@ -64,7 +64,7 @@ enum Cmd {
 
 #[derive(Subcommand)]
 enum KeysCmd {
-    /// Set a key: openai | anthropic | elevenlabs
+    /// Set a key: openai | anthropic | elevenlabs | llm (custom LLM endpoint)
     Set { account: String },
     /// Show which keys are present.
     Status,
@@ -103,8 +103,8 @@ async fn main() -> Result<()> {
         }
         Cmd::Keys { cmd } => match cmd {
             KeysCmd::Set { account } => {
-                if !["openai", "anthropic", "elevenlabs"].contains(&account.as_str()) {
-                    return Err(anyhow!("account must be openai | anthropic | elevenlabs"));
+                if !["openai", "anthropic", "elevenlabs", "llm"].contains(&account.as_str()) {
+                    return Err(anyhow!("account must be openai | anthropic | elevenlabs | llm"));
                 }
                 let v = rpassword::prompt_password(format!("{account} API key (input hidden): "))?;
                 Keys::store(&account, v.trim())?;
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
             }
             KeysCmd::Status => {
                 let k = Keys::load();
-                for (n, v) in [("openai", &k.openai), ("anthropic", &k.anthropic), ("elevenlabs", &k.elevenlabs)] {
+                for (n, v) in [("openai", &k.openai), ("anthropic", &k.anthropic), ("elevenlabs", &k.elevenlabs), ("llm", &k.llm)] {
                     println!("{n:11} {}", if v.is_empty() { "—" } else { "set" });
                 }
             }

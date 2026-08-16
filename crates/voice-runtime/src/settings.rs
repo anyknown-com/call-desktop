@@ -33,10 +33,13 @@ pub struct LlmSettings {
     pub effort: Effort,
     pub fast_model: String,
     pub fast_effort: Effort,
+    /// Empty = the provider's own API. Otherwise an OpenAI- or Anthropic-compatible endpoint
+    /// (DeepSeek, Cloudflare AI Gateway, a local server…), authenticated with `Keys::llm` when set.
+    pub base_url: String,
 }
 impl Default for LlmSettings {
     fn default() -> Self {
-        Self { provider: LlmProvider::OpenAi, model: "gpt-4o-mini".into(), effort: Effort::Unset, fast_model: "gpt-4o-mini".into(), fast_effort: Effort::Unset }
+        Self { provider: LlmProvider::OpenAi, model: "gpt-4o-mini".into(), effort: Effort::Unset, fast_model: "gpt-4o-mini".into(), fast_effort: Effort::Unset, base_url: String::new() }
     }
 }
 

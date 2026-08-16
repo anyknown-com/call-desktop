@@ -28,12 +28,14 @@ pub struct SettingsView {
     // keys
     key_openai: Entity<InputState>,
     key_anthropic: Entity<InputState>,
+    key_llm: Entity<InputState>,
     key_elevenlabs: Entity<InputState>,
     // llm
     llm_provider: Entity<Sel>,
     llm_model: Entity<InputState>,
     llm_effort: Entity<Sel>,
     fast_model: Entity<InputState>,
+    llm_base_url: Entity<InputState>,
     fast_effort: Entity<Sel>,
     // stt / tts
     stt_model: Entity<InputState>,
@@ -80,6 +82,7 @@ impl SettingsView {
         let assistant_name = text(cx, &s.assistant_name, "Aura", |s, v| s.assistant_name = v);
         let llm_model = text(cx, &s.llm.model, "gpt-4o-mini", |s, v| s.llm.model = v);
         let fast_model = text(cx, &s.llm.fast_model, "gpt-4o-mini", |s, v| s.llm.fast_model = v);
+        let llm_base_url = text(cx, &s.llm.base_url, "provider default (e.g. https://api.deepseek.com)", |s, v| s.llm.base_url = v.trim().to_string());
         let stt_model = text(cx, &s.stt.model, "scribe_v2", |s, v| s.stt.model = v);
         let stt_lang = text(cx, &s.stt.language_code, "auto (or e.g. zh, en)", |s, v| s.stt.language_code = v);
         let el_model = text(cx, &s.tts.elevenlabs_model, "eleven_v3", |s, v| s.tts.elevenlabs_model = v);
@@ -119,7 +122,8 @@ impl SettingsView {
         let key_openai = key(cx);
         let key_anthropic = key(cx);
         let key_elevenlabs = key(cx);
-        for (st, account) in [(&key_openai, "openai"), (&key_anthropic, "anthropic"), (&key_elevenlabs, "elevenlabs")] {
+        let key_llm = key(cx);
+        for (st, account) in [(&key_openai, "openai"), (&key_anthropic, "anthropic"), (&key_elevenlabs, "elevenlabs"), (&key_llm, "llm")] {
             subs.push(cx.subscribe(st, move |_, st, ev: &InputEvent, cx| {
                 if matches!(ev, InputEvent::PressEnter { .. }) {
                     let v = st.read(cx).value().to_string();
@@ -171,11 +175,13 @@ impl SettingsView {
         Self {
             key_openai,
             key_anthropic,
+            key_llm,
             key_elevenlabs,
             llm_provider,
             llm_model,
             llm_effort,
             fast_model,
+            llm_base_url,
             fast_effort,
             stt_model,
             stt_lang,
@@ -241,9 +247,10 @@ impl Render for SettingsView {
                             .child(row("ElevenLabs (STT + TTS)", h_flex().gap_2().items_center().child(Input::new(&self.key_elevenlabs).small()).child(div().text_xs().child(key_status(!keys.elevenlabs.is_empty()))), cx))
                             .child(row("OpenAI", h_flex().gap_2().items_center().child(Input::new(&self.key_openai).small()).child(div().text_xs().child(key_status(!keys.openai.is_empty()))), cx))
                             .child(row("Anthropic", h_flex().gap_2().items_center().child(Input::new(&self.key_anthropic).small()).child(div().text_xs().child(key_status(!keys.anthropic.is_empty()))), cx))
+                            .child(row("Custom LLM endpoint", h_flex().gap_2().items_center().child(Input::new(&self.key_llm).small()).child(div().text_xs().child(key_status(!keys.llm.is_empty()))), cx))
                             .child(
                                 Button::new("clear-keys").ghost().small().label("Forget all keys").on_click(cx.listener(|_, _, window, cx| {
-                                    for a in ["openai", "anthropic", "elevenlabs"] {
+                                    for a in ["openai", "anthropic", "elevenlabs", "llm"] {
                                         let _ = Keys::store(a, "");
                                     }
                                     cx.global_mut::<AppState>().keys = Keys::load();
@@ -263,7 +270,8 @@ impl Render for SettingsView {
                             .child(row("Model", Input::new(&self.llm_model).small(), cx))
                             .child(row("Reasoning effort", Select::new(&self.llm_effort).small(), cx))
                             .child(row("Fast model (turn-taking)", Input::new(&self.fast_model).small(), cx))
-                            .child(row("Fast model effort", Select::new(&self.fast_effort).small(), cx)),
+                            .child(row("Fast model effort", Select::new(&self.fast_effort).small(), cx))
+                            .child(row("Base URL", Input::new(&self.llm_base_url).small(), cx)),
                     )
                     .child(
                         section("Speech", cx)
