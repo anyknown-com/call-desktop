@@ -143,6 +143,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
+name = "voice-audio"
+version = "0.1.0"
+
+[[package]]
+name = "voice-cli"
+version = "0.1.0"
+
+[[package]]
 name = "voice-core"
 version = "0.1.0"
 dependencies = [
@@ -152,6 +160,18 @@ dependencies = [
  "serde_json",
  "unicode-segmentation",
 ]
+
+[[package]]
+name = "voice-ml"
+version = "0.1.0"
+
+[[package]]
+name = "voice-os"
+version = "0.1.0"
+
+[[package]]
+name = "voice-providers"
+version = "0.1.0"
 
 [[package]]
 name = "zmij"
