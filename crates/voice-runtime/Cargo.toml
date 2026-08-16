@@ -1,0 +1,23 @@
+[package]
+name = "voice-runtime"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Wires voice-core + voice-audio + voice-ml + voice-providers + voice-os into a running call; shared by the CLI, the GPUI app and the MCP server"
+
+[dependencies]
+voice-core.workspace = true
+voice-audio.workspace = true
+voice-ml.workspace = true
+voice-providers.workspace = true
+voice-os.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+futures.workspace = true
+directories = "6"
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]

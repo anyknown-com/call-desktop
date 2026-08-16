@@ -6,6 +6,7 @@ members = [
   "crates/voice-ml",
   "crates/voice-os",
   "crates/voice-audio",
+  "crates/voice-runtime",
   "crates/voice-cli",
 ]
 
@@ -20,6 +21,7 @@ voice-providers = { path = "crates/voice-providers" }
 voice-ml = { path = "crates/voice-ml" }
 voice-os = { path = "crates/voice-os" }
 voice-audio = { path = "crates/voice-audio" }
+voice-runtime = { path = "crates/voice-runtime" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 thiserror = "2"
