@@ -8,6 +8,7 @@ members = [
   "crates/voice-audio",
   "crates/voice-runtime",
   "crates/voice-cli",
+  "crates/voice-app",
 ]
 
 [workspace.package]

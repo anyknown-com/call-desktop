@@ -2,7 +2,7 @@
 
 mod enroll;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use std::io::Write;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -83,10 +83,6 @@ fn models_dir() -> std::path::PathBuf {
     voice_ml::models::default_dir()
 }
 
-fn profile_path() -> Result<std::path::PathBuf> {
-    Ok(settings::dirs().ok_or_else(|| anyhow!("no config dir"))?.config_dir().join("speaker-profile.json"))
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env().add_directive("voice=info".parse()?)).with_writer(std::io::stderr).init();
@@ -138,7 +134,7 @@ async fn main() -> Result<()> {
             d.restore()?;
             println!("restored");
         }
-        Cmd::Enroll => enroll::run(models_dir(), profile_path()?).await?,
+        Cmd::Enroll => enroll::run(models_dir()).await?,
         Cmd::Call { media, duck, input, output, mock, mic_wav, seconds } => call(media, duck, input, output, mock, mic_wav, seconds).await?,
     }
     Ok(())
@@ -160,9 +156,7 @@ async fn call(media: bool, duck: bool, input: Option<String>, output: Option<Str
     }
     let keys = Keys::load();
     let profile = if s.media_mode {
-        let p = profile_path()?;
-        let bytes = std::fs::read(&p).with_context(|| format!("no speaker profile at {} — run `voice enroll`", p.display()))?;
-        Some(serde_json::from_slice(&bytes)?)
+        Some(voice_runtime::enroll::load_profile().ok_or_else(|| anyhow!("no speaker profile — run `voice enroll`"))?)
     } else {
         None
     };

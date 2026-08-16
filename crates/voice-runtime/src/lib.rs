@@ -3,6 +3,7 @@
 //! assistant speaks, and persists transcripts. The CLI, the GPUI app and the MCP server are thin
 //! front-ends over [`Runtime`].
 
+pub mod enroll;
 pub mod mock;
 pub mod pipeline;
 pub mod settings;
