@@ -125,6 +125,8 @@ pub struct Settings {
     /// verified voice does (needs a voice profile).
     pub media_mode: bool,
     pub system_prompt: String,
+    /// Shown on the stage and in the transcript.
+    pub assistant_name: String,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -136,6 +138,7 @@ impl Default for Settings {
             audio: Default::default(),
             media_mode: false,
             system_prompt: "你是一個友善、簡潔的語音助理。".into(),
+            assistant_name: "Aura".into(),
         }
     }
 }

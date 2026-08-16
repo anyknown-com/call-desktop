@@ -2,8 +2,7 @@
 //! background thread; this view sends it commands and shows progress.
 
 use crate::app::AppState;
-use crate::palette::{c, CORAL, HAIRLINE, IVORY, MUTED, PANEL};
-use crate::settings_view::page_title;
+use crate::palette::{c, BORDER, DANGER, PANEL, TEXT, TEXT_3};
 use gpui::{prelude::FluentBuilder, *};
 use gpui_component::{button::*, h_flex, v_flex, Disableable, Sizable};
 use std::sync::mpsc::Sender;
@@ -223,22 +222,23 @@ impl Render for VoiceView {
             Phase::Ready { accepted, needed } => (accepted, needed),
             _ => (0, 6),
         };
-        div().id("voice").size_full().overflow_y_scroll().child(
         v_flex()
-            .gap_4()
-            .p_6()
-            .w_full()
-            .max_w(px(760.))
-            .child(page_title("My voice"))
-            .child(div().w(px(700.)).flex_shrink_0().text_sm().text_color(c(MUTED)).child(
+            .gap_3()
+            .p_5()
+            .rounded_lg()
+            .bg(c(PANEL))
+            .border_1()
+            .border_color(c(BORDER))
+            .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).text_color(c(TEXT)).child("My voice · Media mode"))
+            .child(div().w(px(660.)).flex_shrink_0().text_sm().text_color(c(TEXT_3)).child(
                 "Media mode lets you watch a video while talking to the assistant: generic speech never interrupts it — only your verified voice does. \
                  Enroll once: six clips of about 3 seconds each, then one check clip. Speak naturally, e.g. read a sentence.",
             ))
             .child(
-                v_flex().gap_2().p_5().rounded_xl().bg(c(PANEL)).border_1().border_color(c(HAIRLINE)).child(div().font_family(crate::palette::DISPLAY_FONT).italic().text_lg().text_color(c(IVORY)).child("Profile")).child(
+                v_flex().gap_2().child(div().text_xs().text_color(c(TEXT_3)).child("PROFILE")).child(
                     match &self.profile_summary {
                         Some(s) => div().text_sm().child(s.clone()),
-                        None => div().text_sm().text_color(c(MUTED)).child("No profile yet."),
+                        None => div().text_sm().text_color(c(TEXT_3)).child("No profile yet."),
                     },
                 )
                 .when(self.has_profile, |d| {
@@ -254,16 +254,11 @@ impl Render for VoiceView {
             .child(
                 v_flex()
                     .gap_3()
-                    .p_5()
-                    .rounded_xl()
-                    .bg(c(PANEL))
-                    .border_1()
-                    .border_color(c(HAIRLINE))
-                    .child(div().font_family(crate::palette::DISPLAY_FONT).italic().text_lg().text_color(c(IVORY)).child("Enroll"))
+                    .child(div().text_xs().text_color(c(TEXT_3)).child("ENROLL"))
                     .child(match &phase {
                         Phase::Idle | Phase::Done => h_flex().gap_2().child(Button::new("start").primary().label(if self.has_profile { "Re-enroll" } else { "Start enrollment" }).on_click(cx.listener(|this, _, _, cx| this.start(cx)))),
                         Phase::Starting => h_flex().child(div().text_sm().child("Opening microphone…")),
-                        Phase::Recording => h_flex().gap_2().items_center().child(div().size(px(10.)).rounded_full().bg(c(CORAL))).child(div().text_sm().child("Recording — keep talking…")),
+                        Phase::Recording => h_flex().gap_2().items_center().child(div().size(px(10.)).rounded_full().bg(c(DANGER))).child(div().text_sm().child("Recording — keep talking…")),
                         Phase::Processing => h_flex().child(div().text_sm().child("Checking…")),
                         Phase::Ready { .. } => h_flex()
                             .gap_2()
@@ -286,10 +281,9 @@ impl Render for VoiceView {
                                 }))
                             })
                             .child(Button::new("cancel").ghost().label("Cancel").on_click(cx.listener(|this, _, _, cx| this.stop(cx))))
-                            .child(div().text_xs().text_color(c(MUTED)).child("Press, then speak for ~3 s.")),
+                            .child(div().text_xs().text_color(c(TEXT_3)).child("Press, then speak for ~3 s.")),
                     })
                     .child(v_flex().gap_1().children(self.log.iter().map(|l| div().text_sm().child(l.clone())))),
-            ),
-        )
+            )
     }
 }

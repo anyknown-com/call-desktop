@@ -56,6 +56,8 @@ pub enum RuntimeCommand {
     Start,
     Hangup,
     Interrupt,
+    /// Mute the microphone: speech events are dropped until unmuted.
+    SetMicMuted(bool),
     Shutdown,
 }
 
@@ -180,6 +182,7 @@ struct Driver {
     duck_restore: Option<AbortHandle>,
     last_state: Option<CallState>,
     proactive: Option<ProactiveSettings>,
+    mic_muted: bool,
     /// When the call last became quietly-listening.
     listening_since: Option<Instant>,
     /// Consecutive nudges without the user saying anything.
@@ -287,6 +290,7 @@ impl Driver {
             ducker,
             duck_restore: None,
             last_state: None,
+            mic_muted: false,
             proactive: settings.turn.proactive.then_some(ProactiveSettings { idle_secs: settings.turn.idle_nudge_secs.max(5) }),
             listening_since: None,
             nudges: 0,
@@ -319,12 +323,19 @@ impl Driver {
                     }
                     RuntimeCommand::Hangup => self.hangup(),
                     RuntimeCommand::Interrupt => self.step(Input::Interrupt),
+                    RuntimeCommand::SetMicMuted(m) => {
+                        self.mic_muted = m;
+                        if m {
+                            self.step(Input::SpeechMisfire);
+                        }
+                    }
                     RuntimeCommand::Shutdown => break,
                 },
                 Some(input) = inputs_rx.recv() => self.step(input),
                 Some(out) = pipe_rx.recv() => match out {
+                    PipelineOut::Input(_) if self.mic_muted => {}
                     PipelineOut::Input(i) => self.step(i),
-                    PipelineOut::Level { prob } => { let _ = self.events.send(RuntimeEvent::Level(prob)); }
+                    PipelineOut::Level { prob } => { let _ = self.events.send(RuntimeEvent::Level(if self.mic_muted { 0.0 } else { prob })); }
                     PipelineOut::GateState(s) => { let _ = self.events.send(RuntimeEvent::GateState(s)); }
                     PipelineOut::TurnRejected(r) => { let _ = self.events.send(RuntimeEvent::Hint(format!("voice not verified ({r})"))); }
                     PipelineOut::Error(e) => { let _ = self.events.send(RuntimeEvent::Error(e)); }

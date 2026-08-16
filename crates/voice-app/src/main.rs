@@ -1,6 +1,7 @@
 //! voice-app — GPUI desktop front-end over `voice_runtime`.
 
 mod app;
+mod assets;
 mod call_view;
 mod history_view;
 mod palette;
@@ -42,12 +43,23 @@ fn main() {
     voice_os::recover_after_crash();
     TOKIO.set(tokio::runtime::Builder::new_multi_thread().enable_all().worker_threads(2).build().expect("tokio")).ok();
 
-    let application = Application::new();
+    let application = Application::new().with_assets(assets::Assets);
     application.run(move |cx| {
+        // Geist + Geist Mono ship inside the binary (OFL, see crates/voice-app/fonts/LICENSE.txt).
+        if let Err(e) = cx.text_system().add_fonts(vec![
+            std::borrow::Cow::Borrowed(include_bytes!("../fonts/Geist-Regular.ttf") as &[u8]),
+            std::borrow::Cow::Borrowed(include_bytes!("../fonts/Geist-Medium.ttf") as &[u8]),
+            std::borrow::Cow::Borrowed(include_bytes!("../fonts/Geist-SemiBold.ttf") as &[u8]),
+            std::borrow::Cow::Borrowed(include_bytes!("../fonts/Geist-Bold.ttf") as &[u8]),
+            std::borrow::Cow::Borrowed(include_bytes!("../fonts/GeistMono-Regular.ttf") as &[u8]),
+            std::borrow::Cow::Borrowed(include_bytes!("../fonts/GeistMono-Medium.ttf") as &[u8]),
+        ]) {
+            tracing::warn!("could not load bundled fonts: {e}");
+        }
         gpui_component::init(cx);
         app::init(cx);
         cx.spawn(async move |cx| {
-            let bounds = cx.update(|cx| Bounds::centered(None, size(px(1040.), px(720.)), cx))?;
+            let bounds = cx.update(|cx| Bounds::centered(None, size(px(1280.), px(820.)), cx))?;
             cx.open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),

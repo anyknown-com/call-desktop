@@ -2,7 +2,8 @@
 //! Every change is saved immediately.
 
 use crate::app::{save_settings, AppState};
-use crate::palette::{c, DISPLAY_FONT, HAIRLINE, IVORY, IVORY_DIM, MUTED, PANEL};
+use crate::palette::{c, BORDER, PANEL, TEXT, TEXT_2, TEXT_3};
+use crate::voice_view::VoiceView;
 use gpui::*;
 use gpui_component::{
     button::*,
@@ -53,6 +54,8 @@ pub struct SettingsView {
     silence_ms: Entity<InputState>,
     // prompt
     system_prompt: Entity<InputState>,
+    assistant_name: Entity<InputState>,
+    voice: Entity<VoiceView>,
     _subs: Vec<Subscription>,
 }
 
@@ -73,6 +76,7 @@ impl SettingsView {
             }));
             st
         };
+        let assistant_name = text(cx, &s.assistant_name, "Aura", |s, v| s.assistant_name = v);
         let llm_model = text(cx, &s.llm.model, "gpt-4o-mini", |s, v| s.llm.model = v);
         let fast_model = text(cx, &s.llm.fast_model, "gpt-4o-mini", |s, v| s.llm.fast_model = v);
         let stt_model = text(cx, &s.stt.model, "scribe_v2", |s, v| s.stt.model = v);
@@ -188,6 +192,8 @@ impl SettingsView {
             output_names,
             silence_ms,
             system_prompt,
+            assistant_name,
+            voice: cx.new(|cx| VoiceView::new(window, cx)),
             _subs: subs,
         }
     }
@@ -197,23 +203,16 @@ fn parse_effort(v: &str) -> Effort {
     EFFORTS.iter().copied().find(|e| effort_label(*e).as_ref() == v).unwrap_or(Effort::Unset)
 }
 
-fn section(title: &'static str, _cx: &App) -> Div {
-    v_flex()
-        .gap_3()
-        .p_5()
-        .rounded_xl()
-        .bg(c(PANEL))
-        .border_1()
-        .border_color(c(HAIRLINE))
-        .child(div().font_family(DISPLAY_FONT).italic().text_lg().text_color(c(IVORY)).child(title))
+pub fn section(title: &'static str, _cx: &App) -> Div {
+    v_flex().gap_3().p_5().rounded_lg().bg(c(PANEL)).border_1().border_color(c(BORDER)).child(div().text_sm().font_weight(FontWeight::SEMIBOLD).text_color(c(TEXT)).child(title))
 }
 
-fn row(label: &'static str, control: impl IntoElement, _cx: &App) -> impl IntoElement {
-    h_flex().gap_3().items_center().child(div().w(px(200.)).flex_shrink_0().text_sm().text_color(c(MUTED)).child(label)).child(div().flex_1().min_w_0().child(control))
+pub fn row(label: &'static str, control: impl IntoElement, _cx: &App) -> impl IntoElement {
+    h_flex().gap_3().items_center().child(div().w(px(200.)).flex_shrink_0().text_sm().text_color(c(TEXT_2)).child(label)).child(div().flex_1().min_w_0().child(control))
 }
 
 pub fn page_title(t: &'static str) -> Div {
-    div().font_family(DISPLAY_FONT).italic().text_2xl().text_color(c(IVORY)).child(t)
+    div().text_xl().font_weight(FontWeight::BOLD).text_color(c(TEXT)).child(t)
 }
 
 impl Render for SettingsView {
@@ -223,7 +222,7 @@ impl Render for SettingsView {
             (g.settings.clone(), g.keys.clone())
         };
         let key_status = |present: bool| if present { "stored ✓" } else { "not set" };
-        let _ = (&self.input_names, &self.output_names, IVORY_DIM);
+        let _ = (&self.input_names, &self.output_names);
 
         div()
             .id("settings")
@@ -237,7 +236,7 @@ impl Render for SettingsView {
                     .child(page_title("Settings"))
                     .child(
                         section("API keys", cx)
-                            .child(div().flex_shrink_0().text_xs().text_color(c(MUTED)).child("Stored in the macOS keychain, never in the settings file. Env vars OPENAI_API_KEY / ANTHROPIC_API_KEY / ELEVENLABS_API_KEY also work."))
+                            .child(div().flex_shrink_0().text_xs().text_color(c(TEXT_3)).child("Stored in the macOS keychain, never in the settings file. Env vars OPENAI_API_KEY / ANTHROPIC_API_KEY / ELEVENLABS_API_KEY also work."))
                             .child(row("ElevenLabs (STT + TTS)", h_flex().gap_2().items_center().child(Input::new(&self.key_elevenlabs).small()).child(div().text_xs().child(key_status(!keys.elevenlabs.is_empty()))), cx))
                             .child(row("OpenAI", h_flex().gap_2().items_center().child(Input::new(&self.key_openai).small()).child(div().text_xs().child(key_status(!keys.openai.is_empty()))), cx))
                             .child(row("Anthropic", h_flex().gap_2().items_center().child(Input::new(&self.key_anthropic).small()).child(div().text_xs().child(key_status(!keys.anthropic.is_empty()))), cx))
@@ -253,13 +252,17 @@ impl Render for SettingsView {
                             ),
                     )
                     .child(
+                        section("Assistant", cx)
+                            .child(row("Name", Input::new(&self.assistant_name).small(), cx))
+                            .child(row("System prompt", Input::new(&self.system_prompt), cx)),
+                    )
+                    .child(
                         section("Language model", cx)
                             .child(row("Provider", Select::new(&self.llm_provider).small(), cx))
                             .child(row("Model", Input::new(&self.llm_model).small(), cx))
                             .child(row("Reasoning effort", Select::new(&self.llm_effort).small(), cx))
                             .child(row("Fast model (turn-taking)", Input::new(&self.fast_model).small(), cx))
-                            .child(row("Fast model effort", Select::new(&self.fast_effort).small(), cx))
-                            .child(row("System prompt", Input::new(&self.system_prompt), cx)),
+                            .child(row("Fast model effort", Select::new(&self.fast_effort).small(), cx)),
                     )
                     .child(
                         section("Speech", cx)
@@ -327,8 +330,9 @@ impl Render for SettingsView {
                                 })),
                                 cx,
                             ))
-                            .child(div().text_xs().text_color(c(MUTED)).child("Echo cancellation is always on. Device changes apply to the next call.")),
-                    ),
+                            .child(div().text_xs().text_color(c(TEXT_3)).child("Echo cancellation is always on. Device changes apply to the next call.")),
+                    )
+                    .child(self.voice.clone()),
             )
     }
 }

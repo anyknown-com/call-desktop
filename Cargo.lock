@@ -7544,6 +7544,7 @@ dependencies = [
  "anyhow",
  "gpui",
  "gpui-component",
+ "libc",
  "serde_json",
  "tokio",
  "tracing",

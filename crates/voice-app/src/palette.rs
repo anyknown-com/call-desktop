@@ -1,19 +1,26 @@
-//! The app's own look: a dim studio. Graphite-blue ground, ivory ink, and one live colour — the
-//! "on-air" light — that follows the call state. Everything else stays quiet.
+//! Vercel-style theme: pure black ground, near-black panels, hairline greys, high-contrast text,
+//! one blue accent, mono numerals.
 
 use gpui::{rgb, Hsla, Rgba};
 
-pub const INK: u32 = 0x12141A; // window ground
-pub const PANEL: u32 = 0x191C24; // cards, dock
-pub const HAIRLINE: u32 = 0x262A34;
-pub const IVORY: u32 = 0xEDE7DA; // primary text
-pub const IVORY_DIM: u32 = 0xB6B1A6;
-pub const MUTED: u32 = 0x7C8190;
-pub const SAGE: u32 = 0x8CBF9F; // listening
-pub const AMBER: u32 = 0xE9A94F; // speaking (on air)
-pub const LAVENDER: u32 = 0xA99EE3; // thinking / transcribing
-pub const CORAL: u32 = 0xE0705F; // you're speaking / hang up
-pub const IDLE: u32 = 0x4B505C;
+pub const BG: u32 = 0x000000;
+pub const PANEL: u32 = 0x0A0A0A;
+pub const ELEVATED: u32 = 0x111111;
+pub const HOVER: u32 = 0x1A1A1A;
+pub const BORDER: u32 = 0x262626;
+pub const BORDER_STRONG: u32 = 0x333333;
+pub const TEXT: u32 = 0xEDEDED;
+pub const TEXT_2: u32 = 0xA1A1A1;
+pub const TEXT_3: u32 = 0x666666;
+pub const ACCENT: u32 = 0x0070F3;
+pub const ACCENT_TEXT: u32 = 0xFFFFFF;
+pub const SUCCESS: u32 = 0x45A557;
+pub const WARN: u32 = 0xF5A623;
+pub const DANGER: u32 = 0xE5484D;
+pub const PURPLE: u32 = 0x8E4EC6;
+
+pub const MONO: &str = "Geist Mono";
+pub const SANS: &str = "Geist";
 
 pub fn c(v: u32) -> Hsla {
     let r: Rgba = rgb(v);
@@ -25,5 +32,3 @@ pub fn with_alpha(v: u32, a: f32) -> Hsla {
     h.a = a;
     h
 }
-
-pub const DISPLAY_FONT: &str = "Baskerville";
