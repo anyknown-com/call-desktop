@@ -13,6 +13,7 @@ cp target/release/voice-app "$APP/Contents/MacOS/voice-app"
 cp target/release/voice "$APP/Contents/MacOS/voice"          # CLI ships alongside
 cp models/*.onnx "$APP/Contents/Resources/models/"
 cp -R models/campplus "$APP/Contents/Resources/models/"
+cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"   # built from assets/icon.png (see assets/README.md)
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -24,6 +25,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundleExecutable</key><string>voice-app</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>14.2</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSMicrophoneUsageDescription</key><string>voice listens to you so the assistant can hear what you say.</string>
