@@ -1,0 +1,54 @@
+{
+  "description": "Minimal WAV replay manifest for the Media-mode speaker gate. Each scenario is a timeline of WAV segments (from the golden fixture set) replayed through MediaTurnController with the real fbank + ONNX pipeline. 'user' segments are the enrolled voice (en_a); 'media' segments are a different voice (zh_a/zh_b). Extend with recorded corpus WAVs for the full Phase 2 12-15 minute set.",
+  "sampleRate": 16000,
+  "wavDir": "golden",
+  "enrollment": {
+    "userWav": "en_a.wav",
+    "note": "Profile centroid = embedding of the full user WAV (stand-in for the 6-clip enrollment; replaced by real enrollment clips when the recorded corpus lands)."
+  },
+  "scenarios": [
+    {
+      "name": "media-only",
+      "description": "Continuous other-voice media keeps VAD active; playback must never be cut.",
+      "segments": [
+        { "role": "media", "wav": "zh_a.wav" },
+        { "role": "media", "wav": "zh_b.wav" },
+        { "role": "media", "wav": "zh_a.wav" },
+        { "role": "media", "wav": "zh_b.wav" },
+        { "role": "silence", "ms": 1000 }
+      ],
+      "expect": { "commits": 0, "accepted": 0 }
+    },
+    {
+      "name": "user-turn-in-silence",
+      "description": "A normal user utterance over silence commits and is accepted.",
+      "segments": [
+        { "role": "silence", "ms": 1000 },
+        { "role": "user", "wav": "en_a.wav" },
+        { "role": "silence", "ms": 1500 }
+      ],
+      "expect": { "commits": 1, "accepted": 1 }
+    },
+    {
+      "name": "short-command",
+      "description": "Under 1.2 s of voiced audio cannot trigger automatic interruption (hotkey path instead).",
+      "segments": [
+        { "role": "silence", "ms": 1000 },
+        { "role": "user", "wav": "en_a.wav", "ms": 800 },
+        { "role": "silence", "ms": 2000 }
+      ],
+      "expect": { "commits": 0, "accepted": 0 }
+    },
+    {
+      "name": "mixed-user-over-media",
+      "description": "User starts during ongoing media speech; exactly one commit, verified turn accepted.",
+      "segments": [
+        { "role": "media", "wav": "zh_a.wav" },
+        { "role": "user", "wav": "en_a.wav" },
+        { "role": "media", "wav": "zh_b.wav", "ms": 1200 },
+        { "role": "silence", "ms": 1500 }
+      ],
+      "expect": { "commits": 1, "accepted": 1 }
+    }
+  ]
+}
