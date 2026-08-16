@@ -6,8 +6,10 @@ license.workspace = true
 description = "Pure, I/O-free logic for the voice desktop app: fbank, speaker gate, turn state machines"
 
 [dependencies]
+regex = "1"
+unicode-segmentation = "1"
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 hound = "3.5"
-serde = { version = "1", features = ["derive"] }
 serde_json = "1"
