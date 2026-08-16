@@ -7,7 +7,8 @@ use clap::{Parser, Subcommand};
 use std::io::Write;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use voice_core::call_machine::{CallStatus, Role, Turn, TurnKind};
-use voice_runtime::settings::{self, DuckMode, Keys, Settings};
+use voice_runtime::keys::Keys;
+use voice_runtime::settings::{self, DuckMode, Settings};
 use voice_runtime::{Runtime, RuntimeCommand, RuntimeEvent, RuntimeOptions};
 
 #[derive(Parser)]

@@ -6,6 +6,7 @@ mod call_view;
 mod history_view;
 mod palette;
 mod settings_view;
+mod state;
 mod voice_view;
 
 use gpui::*;

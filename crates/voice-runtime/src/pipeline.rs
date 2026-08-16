@@ -2,15 +2,24 @@
 //! VAD → either straight to the call machine (Conversation mode) or through the speaker gate
 //! (Media mode). Runs on a plain thread; ML inference blocks here, never on the audio callbacks.
 
-use crate::PipelineOut;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use voice_audio::media_turn::{MediaTurnController, MediaTurnEvent, MediaTurnOptions, SpeakerScorer};
 use voice_core::call_machine::Input;
+use voice_core::media_gate::GateState;
 use voice_core::speaker_profile::SpeakerProfile;
 use voice_ml::{SpeakerEmbedder, VadDetector, VadEvent};
+
+/// What the pipeline thread reports.
+pub enum PipelineOut {
+    Input(Input),
+    Level { prob: f32 },
+    GateState(GateState),
+    TurnRejected(String),
+    Error(String),
+}
 
 pub struct EmbedderScorer(pub SpeakerEmbedder);
 impl SpeakerScorer for EmbedderScorer {

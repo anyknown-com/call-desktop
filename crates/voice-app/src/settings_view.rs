@@ -1,7 +1,7 @@
 //! Settings: API keys (keychain), LLM/STT/TTS, turn-taking, audio devices, system prompt.
 //! Every change is saved immediately.
 
-use crate::app::{save_settings, AppState};
+use crate::state::{save_settings, AppState};
 use crate::palette::{c, BORDER, PANEL, TEXT, TEXT_2, TEXT_3};
 use crate::voice_view::VoiceView;
 use gpui::*;
@@ -13,7 +13,8 @@ use gpui_component::{
     h_flex, v_flex, IndexPath, Sizable, WindowExt,
 };
 use voice_providers::{Effort, LlmProvider};
-use voice_runtime::settings::{Keys, Settings, TtsProvider};
+use voice_runtime::keys::Keys;
+use voice_runtime::settings::{Settings, TtsProvider};
 
 type Sel = SelectState<SearchableVec<SharedString>>;
 

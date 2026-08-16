@@ -4,21 +4,15 @@ use crate::call_view::CallView;
 use crate::history_view::{LogsEvent, LogsView};
 use crate::palette::*;
 use crate::settings_view::SettingsView;
+use crate::state::{self, AppState};
 use gpui::{prelude::FluentBuilder, *};
 use gpui_component::{h_flex, v_flex};
 use voice_core::call_machine::{Role, Turn, TurnKind};
-use voice_runtime::settings::{self, Keys, Settings};
-
-pub struct AppState {
-    pub settings: Settings,
-    pub keys: Keys,
-}
-impl Global for AppState {}
 
 actions!(voice_app, [Quit, ToggleSettings]);
 
 pub fn init(cx: &mut App) {
-    cx.set_global(AppState { settings: settings::load(), keys: Keys::load() });
+    state::init(cx);
     cx.on_action(|_: &Quit, cx| cx.quit());
     cx.bind_keys([
         KeyBinding::new("cmd-q", Quit, None),
@@ -39,13 +33,6 @@ pub fn init(cx: &mut App) {
     })
     .detach();
     cx.activate(true);
-}
-
-pub fn save_settings(cx: &mut App) {
-    let s = cx.global::<AppState>().settings.clone();
-    if let Err(e) = settings::save(&s) {
-        tracing::error!("save settings: {e}");
-    }
 }
 
 pub struct AppView {

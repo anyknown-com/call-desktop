@@ -1,7 +1,7 @@
 //! The centre stage: assistant name, status pill, call timer, round controls. Holds the running
 //! call; the transcript panel (in `app.rs`) reads its state.
 
-use crate::app::{save_settings, AppState};
+use crate::state::{save_settings, AppState};
 use crate::palette::*;
 use gpui::{prelude::FluentBuilder, *};
 use gpui_component::{h_flex, v_flex, WindowExt};

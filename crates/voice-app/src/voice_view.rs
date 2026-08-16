@@ -1,7 +1,7 @@
 //! "My voice": speaker enrollment for Media mode. The Enroller (audio + models) runs on a
 //! background thread; this view sends it commands and shows progress.
 
-use crate::app::AppState;
+use crate::state::AppState;
 use crate::palette::{c, BORDER, DANGER, PANEL, TEXT, TEXT_3};
 use gpui::{prelude::FluentBuilder, *};
 use gpui_component::{button::*, h_flex, v_flex, Disableable, Sizable};
@@ -245,7 +245,7 @@ impl Render for VoiceView {
                     d.child(Button::new("delete").ghost().small().label("Delete profile").on_click(cx.listener(|this, _, _, cx| {
                         let _ = enroll::delete_profile();
                         cx.global_mut::<AppState>().settings.media_mode = false;
-                        crate::app::save_settings(cx);
+                        crate::state::save_settings(cx);
                         this.refresh_profile();
                         cx.notify();
                     })))
